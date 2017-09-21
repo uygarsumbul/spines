@@ -1,0 +1,804 @@
+cd ~/spines/repo
+code{1}{1}                               = '9_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{2}{1}                               = '18_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{3}{1}                               = '19_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{4}{1}                               = '20_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{5}{1}                               = '21_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{6}{1}                               = '22_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{7}{1}                               = '23_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{8}{1}                               = '24_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{9}{1}                               = '25_upsampled_reconstruction_stitched_connected_labelled.eswc';
+directory                                = '/home/uygar/spines/data/upsampledFinalReconstructions/';
+options.resolution                       = [0.12 0.12 0.1];
+allTrees                                 = readDataset_spines(code,directory,options);
+[counts,centers, allCounts, allPairwiseDistances] = pairwiseDistanceDistribution_inhOnSpine(allTrees, 18, 80, 0.5);
+figure;plot(centers, counts/sum(counts)/0.5,'LineWidth',2);
+hold;for tr=1:numel(allCounts); plot(centers, allCounts{tr}/sum(allCounts{tr})/0.5,'LineWidth',2,'Color',[0.7 0.7 0.7]); end;
+plot(centers, counts/sum(counts)/0.5);
+figure;hold;for tr=1:numel(allCounts); plot(centers, allCounts{tr}/sum(allCounts{tr})/0.5,'Color',[0.7 0.7 0.7]); end; plot(centers, counts/sum(counts)/0.5,'LineWidth',2); 
+allTreesS                                 = readDataset_spines_shuffleInhOnSpines(code,directory,options);
+[countsS,centersS, allCountsS, allPairwiseDistancesS] = pairwiseDistanceDistribution_inhOnSpine(allTreesS, 18, 80, 0.5);
+plot(centersS, countsS/sum(countsS)/0.5,'LineWidth',2,'Color','r');
+figure;hold;for tr=1:numel(allCountsS); plot(centersS, allCountsS{tr}/sum(allCountsS{tr})/0.5,'Color',[0.7 0.7 0.7]); end; plot(centersS, countsS/sum(countsS)/0.5,'LineWidth',2,'Color','r');
+figure(1);ylim([0 0.21]); figure(2);ylim([0 0.21]);
+set(gca,'FontSize',16);xlabel('pairwise distance between IS on spines (\mu)', 'FontSize', 16); ylabel('frequency', 'FontSize', 16); set(gcf, 'Color','w')
+saveas(gcf, '/home/uygar/spines/results/pairwiseDistancePDFforISOnSpines.jpg');
+close 
+set(gca,'FontSize',16);xlabel('pairwise distance between IS on spines (\mu)', 'FontSize', 16); ylabel('frequency', 'FontSize', 16); set(gcf, 'Color','w'); title('Shuffled IS','FontSize',16);
+saveas(gcf, '/home/uygar/spines/results/pairwiseDistancePDFforShuffledISOnSpines.jpg');
+
+
+allOneSidedP = []; allSampleSTD = []; all5quantile = []; all95quantile = [];
+cd ~/spines/repo
+[allIonECounts allIonlyCounts totalIonECount totalIonlyCount] = returnAllRatios_inhOnSpines(allTrees, 1);
+allIonECounts = cell2mat(allIonECounts);
+allIonlyCounts      = cell2mat(allIonlyCounts);
+allIonERatios      = allIonECounts ./ (allIonlyCounts+allIonECounts);
+iFr              = totalIonECount / (totalIonlyCount+totalIonECount);
+sampleSTD            = std(allIonERatios);
+endPoints            = cumsum(allIonECounts);
+allShufflesSTD       = zeros(1, 1000);
+for tt = 1:numel(allShufflesSTD)
+  shuffledIonE = randperm(totalIonlyCount+totalIonECount, round(iFr*(totalIonlyCount+totalIonECount)));
+  prevCount = 0;
+  for kk = 1:numel(allIonERatios)
+    thisCount         = nnz(endPoints(kk)>=shuffledIonE);
+    shuffledRatio(kk) = (thisCount-prevCount) / (allIonlyCounts(kk)+allIonECounts(kk));
+    prevCount         = thisCount;
+  end
+  allShufflesSTD(tt)  = std(shuffledRatio);
+end
+oneSided_p = nnz(sampleSTD<allShufflesSTD)/numel(allShufflesSTD); allOneSidedP(end+1)=oneSided_p; allSampleSTD(end+1)=sampleSTD;
+all5quantile(end+1)=quantile(allShufflesSTD,0.05); all95quantile(end+1)=quantile(allShufflesSTD,0.95);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+temp2 = zeros(10, numel(pairAndSomaDistances));
+for kk=0:9
+  [~,~,~, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(allTrees, 'spine', -1:1, 0.1*kk+eps, 'apical', 'terminal'); for mm=1:numel(pairAndSomaDistances); tt(mm)=size(pairAndSomaDistances{mm},1); end;
+  [~,~,~, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(allTrees, 'spine', -1:1, 0.1*kk+eps, 'apical', 'intermediate'); for mm=1:numel(pairAndSomaDistances); ti(mm)=size(pairAndSomaDistances{mm},1); end;
+  temp2(kk+1,:)=tt./ti;
+end
+
+
+
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.8, 'apical', 'intermediateOrTerminal');
+
+h = fspecial('gaussian', [1 19], 3);
+
+
+for kk = 1:numel(trees)
+  pD = []; sD = [];
+  for mm = 1:numel(trees{kk})
+    pD = [pD; allPairwiseDistances{kk}{mm}]; sD = [sD; (allSomaDistancesOfNodesOfInterest{kk}{mm}(1:end-1)+allSomaDistancesOfNodesOfInterest{kk}{mm}(2:end))/2];
+  end
+  aPD{kk} = pD; aSD{kk} = sD;
+  tmp = aSD{kk}/400; tmp = tmp - 0.5;
+
+  tpd = aPD{kk}; tpd = tpd-min(tpd); tpd = tpd/max(tpd);
+  tsd = aSD{kk}; tsd = tsd-min(tsd); tsd = tsd/max(tsd);
+  ks = tpd+i*tsd;
+  [ksv, ia, ic] = unique(ks(:));
+  tmp=tmp(ia); aPD{kk}=aPD{kk}(ia); aSD{kk}=aSD{kk}(ia);
+  ext = size(ksv,1);
+  [maxks, idx] = max(abs(ksv));
+  dk = 0.001; % 0.005; % abs(ksv(idx)) - abs(ksv(idx-1));
+  vec1 = linspace(-dk,1+dk,200);
+  vec2 = linspace(-dk,1+dk,200);
+  [xx, yy] = meshgrid(vec1,vec2);
+  rectPoints = xx(:)+i*yy(:);
+  tessDist = sqrt(pdist2(real(rectPoints), real(ksv)).^2 + pdist2(imag(rectPoints), imag(ksv)).^2);
+  rectPoints(any(tessDist<dk,2)) = [];
+  ksv2 = [ksv' rectPoints'];
+  dens = voronoidens(real(ksv2), imag(ksv2));
+  dens = dens(1:ext);
+  interpolated(:,kk) = pureGridder1d(tmp, dens'.*aPD{kk}/sum(aPD{kk}), 100);
+end
+standardizedSD = 0:10:390;
+
+
+kk=1;for tt=5:280; temp(tt-4)=mean(aPD{kk}(aSD{kk}<tt+5 & aSD{kk}>=tt-5)); end;
+
+
+  ks = aPD{kk}+i*aSD{kk};
+  ksv = ks(:);
+  ext = size(ksv,1);
+  [maxks, idx] = max(abs(ksv));
+  dk = abs(ksv(idx)) - abs(ksv(idx-1));
+  circle = (maxks + dk)*exp(i*2*pi*(0:0.001:(1-0.001)));
+  ksv2 = [ksv' circle];
+  dens = voronoidens(real(ksv2), imag(ksv2));
+  dens = dens(1:ext);
+
+
+
+
+for kk=1:numel(allTrees);
+pD=[]; sD=[]; aD=[];for mm=1:numel(allPairwiseDistances{kk});pD=[pD;allPairwiseDistances{kk}{mm}];if ~isempty(allPairwiseDistances{kk}{mm});sD=[sD;(allSomaDistancesOfNodesOfInterest{kk}{mm}(1:end-1)+allSomaDistancesOfNodesOfInterest{kk}{mm}(2:end))/2];
+aD=[aD;(allXYZofNodesOfInterest{kk}{mm}(1:end-1,:)+allXYZofNodesOfInterest{kk}{mm}(2:end,:))/2*allPAs];end;end;
+for dd=5:1:280; ttt=find(sD>dd-10 & sD<dd+10); bPD(dd-4,kk)=mean(pD(ttt));ttt=find(aD>dd-10 & aD<dd+10); bPD2(dd-4,kk) = mean(pD(ttt));end;
+end
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 1, 0.0001, 'apical', 'primalOrIntermediateOrTerminal');   
+for kk=1:9; sD = [];for mm = 1:numel(trees{kk});sD = [sD; allSomaDistancesOfNodesOfInterest{kk}{mm}];end;figure;hist(sD,10:20:390);end;
+
+
+
+for kk=1:numel(trees)                                                                                                                                                                                            
+[allMu,mini,maxi] = arborHeatMap(trees{kk}, pairAndSomaDistances{kk}, 60, false);plotHeatMap(trees{kk},allMu);set(gcf, 'Color','w', 'Position',[100 100 900 900]); axis square; axis off;
+saveas(gcf,['/home/uygar/spines/results/heatMap_spine_minus1to1_0.8_basalAndApical_primalOrIntermediateOrTerminal_mini' num2str(mini) '_maxi' num2str(maxi) '_neuron' num2str(kk) '.jpg']); close;          
+end
+
+
+allPAS1=[]; allPAS3=[]; meanPairwiseDistances = zeros(1,40); ciPairwiseDistances = zeros(2,40);
+for kk=1:numel(trees); allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)]; allPAS3 = [allPAS3; pairAndSomaDistances{kk}(:,3)]; end;
+for dist=10:10:400
+  [muhat, muci] = expfit(allPAS1(find(allPAS3>=dist-5 & allPAS3<dist+5)));
+  meanPairwiseDistances(dist/10)=muhat;
+  ciPairwiseDistances(:,dist/10)=muci;
+end;
+figure; errorbar(10:10:400, meanPairwiseDistances, meanPairwiseDistances-ciPairwiseDistances(1,:), ciPairwiseDistances(2,:)-meanPairwiseDistances,'LineWidth',2,'Marker','s','MarkerSize',10,'MarkerEdgeColor','r','MarkerFaceColor','r');
+
+
+cd ~/spines/
+for kk = 1:100
+  [allLSPD, largeSpineXYZ]      = extractLeaf2RootSpecialNodes_mod(allTrees,12, 4, 0.0001, (kk-1)*50, (kk-1)*50+300, 50, 11);
+  [muhat, muci]                 = expfit(cell2mat(allLSPD'));
+  allMuHat(kk)                  = muhat;
+  muHatAndXYZ(kk).muhat         = muhat;
+  muHatAndXYZ(kk).largeSpineXYZ = largeSpineXYZ;
+  allMuCI(:,kk)                 = muci;
+end
+validRegions = find(allMuHat>0 & abs(diff(allMuCI))<median(allMuHat(allMuHat>0))); disp(median(allMuHat(allMuHat>0)))
+allMuHatOrig = allMuHat;                allMuCIOrig = allMuCI;
+allMuHat     = allMuHat(validRegions);  allMuCI     = allMuCI(:, validRegions);
+figure; errorbar(validRegions*50, allMuHat, allMuHat-allMuCI(1,:), allMuCI(2,:)-allMuHat,'LineWidth',2,'Marker','s','MarkerSize',10,'MarkerEdgeColor','r','MarkerFaceColor','r');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.8, 'apical', 'primalOrIntermediateOrTerminal');   
+allPAS1=[]; allPAS3=[]; meanPairwiseDistances = zeros(1,40); ciPairwiseDistances = zeros(2,40);
+for kk=1:numel(trees);allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)];for mm=2:numel(trees{kk});allPAS3 = [allPAS3; abs(allXYZofNodesOfInterest{kk}{mm}(1:end-1,:)*pas(:,kk))];end;end;
+for dist=10:10:400;[muhat, muci] = expfit(allPAS1(find(allPAS3>=dist-5 & allPAS3<dist+5)));;meanPairwiseDistances(dist/10)=muhat;;ciPairwiseDistances(:,dist/10)=muci;end;
+tt=find(meanPairwiseDistances<2*(meanPairwiseDistances-ciPairwiseDistances(1,:)) | meanPairwiseDistances<2*(ciPairwiseDistances(2,:)-meanPairwiseDistances))-1;
+meanPairwiseDistances=meanPairwiseDistances(1:tt(1)); ciPairwiseDistances=ciPairwiseDistances(:,1:tt(1));
+figure; errorbar(10:10:10*tt(1), 1./meanPairwiseDistances, 1./meanPairwiseDistances-1./ciPairwiseDistances(1,:), 1./ciPairwiseDistances(2,:)-1./meanPairwiseDistances,'LineWidth',2,'Marker','s','MarkerSize',10,'MarkerEdgeColor','r','MarkerFaceColor','r');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 0:1, 0.00001, 'apical', 'primalOrIntermediateOrTerminal');
+clear allDat;for kk=1:9; allPAS1=[]; allPAS3=[]; allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)];for mm=2:numel(trees{kk});allPAS3 = [allPAS3; allXYZofNodesOfInterest{kk}{mm}(1:end-1,:)*pas(:,kk)];end;
+%if sum(allPAS3)<0; allPAS3=-allPAS3; end; for dist=-30:10:400;muhat = numel(find(allPAS3>=dist-15 & allPAS3<dist+15));allDat(dist/10+4,kk)=muhat;end;allDat(:,kk)=allDat(:,kk)/sum(allDat(:,kk));end; [rho,p]=corr(allDat);disp(rho)
+if sum(allPAS3)<0; allPAS3=-allPAS3; end; allPAS3=allPAS3/280; allPAS3=allPAS3-0.45; allDat(:,kk)=pureGridder1d(allPAS3,ones(size(allPAS3)), 30);allDat(:,kk)=allDat(:,kk)/sum(allDat(:,kk));end; [rho,p]=corr(allDat);disp(rho)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+h = fspecial('gaussian', [1 121], 10);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 0:1, 0.00001, 'apical', 'primalOrIntermediateOrTerminal');
+clear allDat;for kk=1:9; allPAS1=[]; allPAS3=[]; allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)];for mm=2:numel(trees{kk});allPAS3 = [allPAS3; allXYZofNodesOfInterest{kk}{mm}(1:end-1,:)*pas(:,kk)];end;
+if sum(allPAS3)<0; allPAS3=-allPAS3; end; allPAS3=(allPAS3+81.9073)/(376.4140+81.9073); allPAS3=allPAS3-0.5;
+tmp=pureGridder1d(allPAS3,ones(size(allPAS3)),458); tmp = conv(tmp,h,'same');allDat(:,kk)=tmp/sum(tmp);end; [rho,p]=corr(allDat);disp(rho)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+h = fspecial('gaussian', [1 121], 10);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 0:1, 0.00001, 'apical', 'primalOrIntermediateOrTerminal');
+clear allDat;for kk=1:9; allPAS1=[]; allPAS3=[]; allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)]; allPAS3 = [allPAS3; pairAndSomaDistances{kk}(:,2)];                                                    
+allPAS3=(allPAS3-3.3592)/(450.0742-3.3592); allPAS3=allPAS3-0.5; tmp=pureGridder1d(allPAS3,ones(size(allPAS3)),446); tmp = conv(tmp,h,'same');allDat(:,kk)=tmp/sum(tmp);end; [rho,p]=corr(allDat);disp(rho)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 0, 0.0001, 'apical', 'primalOrIntermediateOrTerminal');  
+allPAS1=[]; allPAS2=[]; meanPairwiseDistances =zeros(1,40); ciPairwiseDistances = zeros(2,40);
+for kk=1:numel(trees); allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)]; allPAS2 = [allPAS2; pairAndSomaDistances{kk}(:,2)]; end;
+for dist=5:5:400;[muhat, muci] = expfit(allPAS1(find(allPAS2>=dist-15 & allPAS2<dist+15)));meanPairwiseDistances(dist/5)=muhat;ciPairwiseDistances(:,dist/5)=muci;end
+figure; errorbar(5:5:400, 1./meanPairwiseDistances, 1./meanPairwiseDistances-1./ciPairwiseDistances(2,:), 1./ciPairwiseDistances(1,:)-1./meanPairwiseDistances,'LineWidth',2,'Marker','s','MarkerSize',10,'MarkerEdgeColor',[.5 0 .7],'MarkerFaceColor',[.5 0 .7],'Color',[.5 0 .7]);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', 0, 0.0001, 'basal', 'primalOrIntermediateOrTerminal');   
+allPAS1=[]; allPAS2=[]; meanPairwiseDistances =zeros(1,40); ciPairwiseDistances = zeros(2,40);
+for kk=1:numel(trees); allPAS1 = [allPAS1; pairAndSomaDistances{kk}(:,1)]; allPAS2 = [allPAS2; pairAndSomaDistances{kk}(:,2)]; end;
+for dist=5:5:400;[muhat, muci] = expfit(allPAS1(find(allPAS2>=dist-15 & allPAS2<dist+15)));meanPairwiseDistances(dist/5)=muhat;ciPairwiseDistances(:,dist/5)=muci;end
+hold;
+tt=find(1./meanPairwiseDistances<2*(1./meanPairwiseDistances-1./ciPairwiseDistances(2,:)) | 1./meanPairwiseDistances<2*(1./ciPairwiseDistances(1,:)-1./meanPairwiseDistances),1); 
+errorbar(5:5:5*tt, 1./meanPairwiseDistances(1:tt), 1./meanPairwiseDistances(1:tt)-1./ciPairwiseDistances(2,1:tt), 1./ciPairwiseDistances(1,1:tt)-1./meanPairwiseDistances(1:tt),'LineWidth',2,'Marker','s','MarkerSize',10,'MarkerEdgeColor',[0 0.5 0],'MarkerFaceColor',[0 .5 0],'Color',[0 .5 0]);
+xlabel('distance from soma (\mu)','FontSize',16); ylabel('# dually-innervated per micron', 'FontSize', 16); set(gca,'FontSize',16,'box','off'); set(gcf,'Color','w','Position',[100 100 1200 800]);xlim([0 400]);legend('apical','basal');   
+saveas(gcf,'/home/uygar/spines/results/duallyInnervatedRate_9neurons_window30_purpleAndGreen.jpg');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.8, 'basalAndApical', 'primalOrIntermediateOrTerminal');
+for kk=1:9; [allMu, mini,maxi] = arborHeatMap(trees{kk}, pairAndSomaDistances{kk}, 30, false); plotHeatMap(trees{kk}, allMu);
+saveas(gcf, ['/home/uygar/spines/results/heatMap_largeIS_0to1_0.8_basalAndApical_primalOrIntermediateOrTerminal_mini' num2str(mini) '_maxi' num2str(maxi) '_neuron' num2str(kk) '.jpg']); close;
+end;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%xx=zxy(:,2).^2; yy=zxy(:,3).^2; zz=zxy(:,1).^2; xy=zxy(:,2).*zxy(:,3); xz=zxy(:,2).*zxy(:,1); yz=zxy(:,3).*zxy(:,1); x=zxy(:,2); y=zxy(:,3); z=zxy(:,1);
+%A=[yy zz xy xz yz x y z ones(size(x))]; Gamma=1e-3*eye(size(A,2)); parls=(A'*A+Gamma'*Gamma)\(-A'*xx);
+    dist = abs([thisx thisy thisz+parls(3)/parls(2)]*[1 parls(1) parls(2)]');
+
+
+cd ~/spines/repo
+code{1}{1}                               = '9_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{2}{1}                               = '18_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{3}{1}                               = '19_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{4}{1}                               = '20_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{5}{1}                               = '21_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{6}{1}                               = '22_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{7}{1}                               = '23_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{8}{1}                               = '24_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{9}{1}                               = '25_upsampled_reconstruction_stitched_connected_labelled.eswc';
+directory                                = '/home/uygar/spines/data/upsampledFinalReconstructions/';
+options.resolution                       = [0.12 0.12 0.1];
+code = code(1:5);
+trees                                    = readDataset_spines_mod(code,directory,options);
+h = fspecial('gaussian', [1 121], 15);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'apical', 'primalOrIntermediateOrTerminal');
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution(dd); end;
+  zxy=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:); shift = [trees{kk}{1}{3}(3)-soma(1) trees{kk}{1}{3}(1)-soma(2) trees{kk}{1}{3}(2)-soma(3)]; zxy = [zxy(:,1)+shift(1) zxy(:,2)+shift(2) zxy(:,3)+shift(3)];
+  x=zxy(:,2); y=zxy(:,3); z=zxy(:,1); A=[y z ones(size(x))]; Gamma=0*eye(size(A,2)); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  unitNormal = [1 parls(1) parls(2)]'; unitNormal = unitNormal/norm(unitNormal);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    dist = abs([allXYZofNodesOfInterest{kk}{mm}(:,1) allXYZofNodesOfInterest{kk}{mm}(:,2) allXYZofNodesOfInterest{kk}{mm}(:,3)+parls(3)/parls(2)]*unitNormal);
+    piaDists = [piaDists; dist];
+  end
+  tmp = conv(pureGridder1d((-piaDists+471.3667)/390.8879 - 0.5, ones(size(piaDists)), 391), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-471:-81,allPiaDists); xlim([-1000 0])
+
+%  allPiaDists{kk} = piaDists;
+%end
+%for kk = 1:numel(trees); figure;hist(allPiaDists{kk},[125:50:925]); end;
+
+
+
+cd ~/spines/repo
+code{1}{1}                               = '9_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{2}{1}                               = '18_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{3}{1}                               = '19_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{4}{1}                               = '20_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{5}{1}                               = '21_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{6}{1}                               = '22_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{7}{1}                               = '23_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{8}{1}                               = '24_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{9}{1}                               = '25_upsampled_reconstruction_stitched_connected_labelled.eswc';
+directory                                = '/home/uygar/spines/data/upsampledFinalReconstructions/';
+options.resolution                       = [0.12 0.12 0.1];
+code = code(1:5);
+trees                                    = readDataset_spines_mod(code,directory,options);
+h = fspecial('gaussian', [1 121], 15);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'apical', 'primalOrIntermediateOrTerminal');
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution(dd); end;
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:); shift = trees{kk}{1}{3}-soma; xyz = [xyz(:,1)+shift(1) xyz(:,2)+shift(2) xyz(:,3)+shift(3)];
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3); A=[y z ones(size(x))]; Gamma=0*eye(size(A,2)); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  unitNormal = [1 parls(1) parls(2)]'; unitNormal = unitNormal/norm(unitNormal);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    dist = abs([allXYZofNodesOfInterest{kk}{mm}(:,1) allXYZofNodesOfInterest{kk}{mm}(:,2) allXYZofNodesOfInterest{kk}{mm}(:,3)+parls(3)/parls(2)]*unitNormal);
+    piaDists = [piaDists; dist];
+  end
+  tmp = conv(pureGridder1d((-piaDists+471.3667)/390.8879 - 0.5, ones(size(piaDists)), 391), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-471:-81,allPiaDists); xlim([-1000 0])
+%%%%%%%%%%%%%%% QUADRIC %%%%%%%%%%%%%%%%%%%%%%%
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution(dd); end;
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:); shift = trees{kk}{1}{3}-soma; xyz = [xyz(:,1)+shift(1) xyz(:,2)+shift(2) xyz(:,3)+shift(3)];
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=1e-2*diag([0 0 1 1 1 1 1 1 0]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+496.5810)/(496.5810-43.7133) - 0.5, ones(size(piaDists)), 453), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-496:-44,allPiaDists); xlim([-1000 0])
+
+% new
+h = fspecial('gaussian', [1 61], 10);
+clear allPiaDists;for kk = 1:numel(trees)
+  piaDists = [];
+  ttt=[];for mm = 2:numel(trees{kk});ttt=[ttt;allXYZofNodesOfInterest{kk}{mm}];end; unitNormal=calculatePrincipalAxes(ttt); unitNormal=unitNormal(:,1);
+  for mm = 2:numel(trees{kk})
+    dist = abs(trees{kk}{mm}{4}{1}*unitNormal);
+    piaDists = [piaDists; dist(:)];
+  end
+  tmp = conv(pureGridder1d((piaDists+30)/(396-0+60) - 0.5, ones(size(piaDists)), 396-0+60), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;
+figure;plot(-30:425,allPiaDists); xlim([0 500]);
+% new
+
+[PD, XYZ, SD, pASD] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.00001, 'apical', 'primalOrIntermediateOrTerminal');
+[iPD, iXYZ, iSD, ipASD] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.00001, 'apical', 'primalOrIntermediateOrTerminal');
+kk=1;s2s=[];s2i=[]; i2i=[];
+for mm=2:numel(trees{kk});
+  if size(iXYZ{kk}{mm},1)>1
+    for pp = 1:size(XYZ{kk}{mm},1)-1
+      s2s = [s2s PD{kk}{mm}(pp)]; [mini,pos]=min(pdist2(XYZ{kk}{mm}(pp,:),iXYZ{kk}{mm})); s2i=[s2i mini];
+      i2i=[i2i min(pdist2(iXYZ{kk}{mm}(pos,:), iXYZ{kk}{mm}([1:pos-1 pos+1:end],:)))];
+    end;
+  end;
+end;
+
+
+
+[PD, XYZ, SD, pASD] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.5, 'apical', 'primalOrIntermediateOrTerminal');
+[iPD, iXYZ, iSD, ipASD] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.5, 'apical', 'primalOrIntermediateOrTerminal');
+kk=1;s2s=[];s2i=[];for mm=2:numel(trees{kk}); if size(XYZ{kk}{mm},1)>1; tt=min(1000*eye(size(XYZ{kk}{mm},1))+squareform(pdist(XYZ{kk}{mm})),[],1); s2s=[s2s tt]; tti=min(pdist2(iXYZ{kk}{mm}, XYZ{kk}{mm}),[],1); s2i=[s2i tti]; end; end;
+
+
+[PD, XYZ, SD, pASD] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.00001, 'basal', 'intermediateOrTerminal');  
+[iPD, iXYZ, iSD, ipASD] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.00001, 'basal', 'intermediateOrTerminal');
+cc={'b','r','g','m'}; sy={'d','o','s','.'};
+figure;hold;
+for pp=1:4
+kk=2*pp-1;
+tt=[];for mm=2:numel(trees{kk});tt=[tt [size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2})]; end;[rho,p]=corr(tt(1,:)',tt(2,:)'); plot(tt(1,:)',tt(2,:)','Marker',sy{pp},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{pp},'MarkerEdgeColor',cc{pp})
+end
+set(gcf,'Color',w');set(gca,'FontSize',16,'box','off');xlabel('# spines per \mu','FontSize',16);ylabel('# IS per \mu','FontSize',16);
+
+
+[PD, XYZ, SD, pASD] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.00001, 'basal', 'intermediateOrTerminal');
+[iPD, iXYZ, iSD, ipASD] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.00001, 'basal', 'intermediateOrTerminal');
+kk=1;
+figure;hold;
+allTypes=[]; alltt=[];
+for mm=2:numel(trees{kk});
+  type=0; node=mm; while true; parent=trees{kk}{node}{1}; if ~isempty(parent); node=parent; type=type+1; else; break; end; end; type(type>3)=3; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+%  plot(tt(1)',tt(2)','Marker',sy{type},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{type},'MarkerEdgeColor',cc{type});
+end
+avgtt=[]; for bt=1:3; avgtt(:,bt)=mean(alltt(:, allTypes==bt),2);end; figure;plot(avgtt(1,:),avgtt(2,:));
+
+
+allTypes=[]; alltt=[];
+for mm=2:numel(trees{kk});
+  type = 0; node=mm; if any(trees{kk}{node}{4}{5}(:,19-7)<2); type=1; else; if ~isempty(trees{kk}{node}{2}); type=2; else; type=3; end; end; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+  if abs(diff(trees{kk}{node}{4}{5}([1 end],4)))>5 & any(trees{kk}{node}{4}{5}(:,19-7)==7); plot(tt(1)',tt(2)','Marker',sy{type},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{type},'MarkerEdgeColor',cc{type}); end;
+end
+
+allTypes=[]; alltt=[];
+for mm=2:numel(trees{kk});
+  node=mm; if any(trees{kk}{node}{4}{5}(1:end-1,9-7)==0); type=0; else; if any(trees{kk}{node}{4}{5}(1:end-1,9-7)==1); type=1; else; if ~isempty(trees{kk}{node}{2}); type=2; else; type=3; end; end; end; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+  if type>0; plot(tt(1)',tt(2)','Marker',sy{type},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{type},'MarkerEdgeColor',cc{type}); end;
+end
+
+allTypes=[]; alltt=[];
+for mm=2:numel(trees{kk});
+  type = 0; node=mm; st=1; fi=size(trees{1}{5}{4}{5},1);if any(trees{kk}{node}{4}{5}(:,19-7)<2); type=1; fi=find(trees{kk}{node}{4}{5}(:,19-7)<2,1); else; if ~isempty(trees{kk}{node}{2}); type=2; else; type=3; end; end; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+  plot(tt(1)',tt(2)','Marker',sy{type},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{type},'MarkerEdgeColor',cc{type});
+end
+
+
+for kk=1:numel(trees)
+allTypes=[]; alltt=[]; valid=false(1,numel(trees{kk})-1);
+for mm=2:numel(trees{kk});
+  type = 0; node=mm; if any(trees{kk}{node}{4}{5}(:,19-7)<2); type=1; else; if ~isempty(trees{kk}{node}{2}); type=2; else; type=3; end; end; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+  if abs(diff(trees{kk}{node}{4}{5}([1 end],4)))>5 & any(trees{kk}{node}{4}{5}(:,19-7)==7); valid(mm-1)=true; end;
+end
+allttRed=alltt(:,find(allTypes==2 & valid));
+allttGreen=alltt(:,find(allTypes==3 & valid));
+[r,p]=corr(allttRed(1,:)',allttRed(2,:)');
+[rg,pg]=corr(allttGreen(1,:)',allttGreen(2,:)');
+disp([r rg]);disp([p pg]);
+end
+
+
+
+
+
+[PD, XYZ, SD, pASD] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.00001, 'apical', 'intermediateOrTerminal');
+[iPD, iXYZ, iSD, ipASD] = pairwiseDistanceDistribution_scratch2(trees, 'IS', [0 1], 0.00001, 'apical', 'intermediateOrTerminal');
+kk=1;
+figure;hold;
+allTypes=[]; alltt=[];
+for mm=2:numel(trees{kk});
+  type=0; node=mm; while true; parent=trees{kk}{node}{1}; if ~isempty(parent); node=parent; type=type+1; else; break; end; end; type(type<4)=1; type(type>3 & type<11)=2; type(type>10)=3; allTypes=[allTypes type];
+  tt=[size(XYZ{kk}{mm},1); size(iXYZ{kk}{mm},1)]/sum(trees{kk}{mm}{4}{2}); alltt=[alltt [tt(1); tt(2)]];
+  plot(tt(1)',tt(2)','Marker',sy{type},'LineStyle','none','MarkerSize',8,'MarkerFaceColor',cc{type},'MarkerEdgeColor',cc{type});
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+cd ~/spines/repo
+code{1}{1}                               = '9_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{2}{1}                               = '18_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{3}{1}                               = '19_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{4}{1}                               = '22_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{5}{1}                               = '23_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{6}{1}                               = '24_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{7}{1}                               = '25_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{1}{2}                               = '9_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{2}{2}                               = '18_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{3}{2}                               = '19_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{4}{2}                               = '22_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{5}{2}                               = '23_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{6}{2}                               = '24_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{7}{2}                               = '25_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+directory                                = '/home/uygar/spines/data/upsampledFinalReconstructions/';
+options.resolution                       = [0.12 0.12 0.1];
+options.resolution20x                    = [0.62 0.62 0.75];
+trees                                    = readDataset_spines_mod(code,directory,options);
+h = fspecial('gaussian', [1 61], 10);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'basalAndApical', 'primalOrIntermediateOrTerminal');
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  mean100afterTraceShift = mean(xyz100); xyz100 = xyz100 - kron(mean100afterTraceShift, ones(size(xyz100,1),1));
+  mean20 = mean(xyz20); xyz20 = xyz20 - kron(mean20, ones(size(xyz20,1),1));
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*xyz20'-xyz100')*(A*xyz20'-xyz100')'+1e6*(A'-inv(A))*(A'-inv(A))'),eye(3),optimset('MaxFunEvals',10000,'MaxIter',10000));
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=(xyz-kron(mean20, ones(size(xyz,1),1)))*AA' + kron(mean100afterTraceShift, ones(size(xyz,1),1));
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=1e-2*diag([0 0 1 1 1 1 1 1 0]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+525)/(525-0) - 0.5, ones(size(piaDists)), 525), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-525:-1,allPiaDists); xlim([-1000 0])
+
+a2=allPiaDists; for kk=1:numel(trees);a2(:,kk)=a2(:,kk)/max(a2(:,kk));end;
+figure;plot(-496:-44,a2,'LineWidth',2); xlim([-1000 0]);set(gca,'box','off','FontSize',18);set(gcf,'Color','w','Position',[100 100 1500 800]);xlabel('distance from pia (um)','FontSize',18);ylabel('normalized spine rate','FontSize',18)
+saveas(gcf,'/home/uygar/spines/results/profiles_22to25.jpg');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+xyz20=[zxy20(:,2)*0.62 zxy20(:,3)*0.62 zxy20(:,1)*0.75];
+xyz100=[zxy100(:,2)*0.12 zxy100(:,3)*0.12 zxy100(:,1)*0.1]; 
+xyz20=xyz20-kron(mean(xyz20),ones(size(xyz20,1),1));
+xyz100=xyz100-kron(mean(xyz100),ones(size(xyz100,1),1));
+opts=optimset('MaxFunEvals',10000,'MaxIter',10000);
+[x,fval,exitflag]=fminsearch(@(A)trace((A*xyz20'-xyz100')*(A*xyz20'-xyz100')'+1e6*(A'-inv(A))*(A'-inv(A))'),eye(3),opts);disp(det(x));disp(x);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear allPiaDists
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  mean100afterTraceShift = mean(xyz100); xyz100 = xyz100 - kron(mean100afterTraceShift, ones(size(xyz100,1),1));
+  mean20 = mean(xyz20); xyz20 = xyz20 - kron(mean20, ones(size(xyz20,1),1));
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*xyz20(:,1:2)'-xyz100(:,1:2)')*(A*xyz20(:,1:2)'-xyz100(:,1:2)')'+1e1*(A'-inv(A))*(A'-inv(A))'),eye(2),optimset('MaxFunEvals',10000,'MaxIter',10000));
+AA=[[AA [0;0]];[0 0 1]];
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=(xyz-kron(mean20, ones(size(xyz,1),1)))*AA' + kron(mean100afterTraceShift, ones(size(xyz,1),1));
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=1e-2*diag([1 1 1 1 1 1 1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+537)/(537-0) - 0.5, ones(size(piaDists)), 537), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear allPiaDists
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')'+1e9*(A(:,1:3)'-inv(A(:,1:3)))*(A(:,1:3)'-inv(A(:,1:3)))'),initA,optimset('MaxFunEvals',100000,'MaxIter',100000));
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=1e-2*diag([1 1 1 1 1 1 1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+537)/(537-0) - 0.5, ones(size(piaDists)), 537), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-537:-1,allPiaDists); xlim([-1000 0])
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+h = fspecial('gaussian', [1 121], 20);
+clear allPiaDists
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+
+xx1=d20(:,[1 2 4]); xx2=xyz100(:,1:2); 
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*xx1'-xx2')*(A*xx1'-xx2')'+1e15*(A(:,1:2)'-inv(A(:,1:2)))*(A(:,1:2)'-inv(A(:,1:2)))'),initA(1:2,[1 2 4]),optimset('MaxFunEvals',1000000,'MaxIter',1000000));
+AA = [[AA(1:2,1:2) [0;0] AA(1:2,3)];[0 0 1 initA(3,4)]];
+%  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')'+1e15*(A(:,1:3)'-inv(A(:,1:3)))*(A(:,1:3)'-inv(A(:,1:3)))'),initA,optimset('MaxFunEvals',1000000,'MaxIter',1000000));
+%AA=initA;
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);                              
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-613:-10,allPiaDists); xlim([-1000 0]); title('1e15xyzS, 0linear, 553, 69')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+  xx1=d20(:,[1 2 4]); xx2=xyz100(:,1:2);
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*xx1'-xx2')*(A*xx1'-xx2')'+1e3*(A(:,1:2)'-inv(A(:,1:2)))*(A(:,1:2)'-inv(A(:,1:2)))'),initA(1:2,[1 2 4]),optimset('MaxFunEvals',1000000,'MaxIter',1000000));
+  AA = [[AA(1:2,1:2) [0;0] AA(1:2,3)];[0 0 1 initA(3,4)]];
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-613:-10,allPiaDists); xlim([-1000 0]); title('1e15xyzS, 0linear, 553, 69')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')')+1e5*((abs(det(A(1:3,1:3)))-1)^2),initA,optimset('MaxFunEvals',100000,'MaxIter',100000)); % 1e5->det is close enough to 1
+  disp([det(AA(1:3,1:3)) trace((AA*d20'-xyz100')*(AA*d20'-xyz100')')]);
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-613:-10,allPiaDists); xlim([-1000 0]); title('1e15xyzS, 0linear, 553, 69')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+  xx1=d20(:,[1 2 4]); xx2=xyz100(:,1:2);
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*xx1'-xx2')*(A*xx1'-xx2')')+1e5*((abs(det(A(:,1:2)))-1)^2),initA(1:2,[1 2 4]),optimset('MaxFunEvals',1000000,'MaxIter',1000000));
+  disp([det(AA(1:2,1:2)) trace((AA*xx1'-xx2')*(AA*xx1'-xx2')')]);
+  AA = [[AA(1:2,1:2) [0;0] AA(1:2,3)];[0 0 1 initA(3,4)]];
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=1e-2*diag([1 1 1 1 1 1 1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);
+    piaDists = [piaDists; dist'];
+  end
+
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end
+figure;plot(-613:-10,allPiaDists(:,[1:4 6:7])); xlim([-1000 0]); title('1e15xyzS, 0linear, 553, 69')
+
+
+
+cd ~/spines/repo
+code{1}{1}                               = '8_upsampled_justSpines_stitched_connected_labelled.eswc';
+code{2}{1}                               = '9_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{3}{1}                               = '13_upsampled_justSpines_stitched_connected_labelled.eswc';
+code{4}{1}                               = '18_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{5}{1}                               = '19_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{6}{1}                               = '20_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{7}{1}                               = '21_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{8}{1}                               = '22_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{9}{1}                               = '23_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{10}{1}                              = '24_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{11}{1}                              = '25_upsampled_reconstruction_stitched_connected_labelled.eswc';
+code{1}{2}                               = '8_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{2}{2}                               = '9_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{3}{2}                               = '13_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{4}{2}                               = '18_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{5}{2}                               = '19_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{6}{2}                               = '20_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{7}{2}                               = '21_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{8}{2}                               = '22_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{9}{2}                               = '23_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{10}{2}                              = '24_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+code{11}{2}                              = '25_zxyPialSurfaceCorrespondencesBetween20xAnd100x.mat';
+directory                                = '/home/uygar/spines/data/upsampledFinalReconstructions/';
+options.resolution                       = [0.12 0.12 0.1];
+options.resolution20x                    = [0.62 0.62 0.75];
+trees                                    = readDataset_spines_mod(code,directory,options);
+h = fspecial('gaussian', [1 121], 20);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'basalAndApical', 'primalOrIntermediateOrTerminal');
+clear allPiaDists;for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (xyz100(1,:)-xyz20(1,:))'];  
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')')+1e5*((abs(det(A(1:3,1:3)))-1)^2),initA,optimset('MaxFunEvals',100000,'MaxIter',100000)); % 1e5->det is close enough to 1
+disp(det(AA(1:3,1:3)))
+disp(trace((AA*d20'-xyz100')*(AA*d20'-xyz100')'))
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z xy xz yz xx yy zz ones(size(y))]; Gamma=2e4*diag([0 0 1 1 1 1 1 1 0]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]);    piaDists = [piaDists; dist'];
+  end
+disp(pqdist([0;0;0],[parls([6 7 8 3 4 5]); 1; parls([1 2 9])]))                         
+  tmp = conv(pureGridder1d((-piaDists+502+60)/(502-60+120) - 0.5, ones(size(piaDists)), 502-60+120), h, 'same');  
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;[~,posi]=max(allPiaDists(:,[1:8 10:11]));disp(std(posi))
+figure;plot(-562:-1,allPiaDists); xlim([-1000 0]);
+figure;plot(-562:-1,allPiaDists(:,[1 2 4 8 11])); xlim([-1000 0]); 
+
+clear allPiaDists;for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  AA = [eye(3) (xyz100(1,:)-xyz20(1,:))'];
+  disp(trace((AA*d20'-xyz100')*(AA*d20'-xyz100')'))
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);    piaDists = [piaDists; dist'];
+  end
+disp(pqdist([0;0;0],[0;0;0;0;0;0; 1; parls([1 2 3])]))
+  tmp = conv(pureGridder1d((-piaDists+502+60)/(502-60+120) - 0.5, ones(size(piaDists)), 502-60+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;[~,posi]=max(allPiaDists(:,[1:8 10:11]));disp(std(posi))
+figure;plot(-562:-1,allPiaDists); xlim([-1000 0]);
+figure;plot(-562:-1,allPiaDists(:,[1 2 4 5 8 11])); xlim([-1000 0]);
+
+
+h = fspecial('gaussian', [1 121], 20);
+[allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'basalAndApical', 'primalOrIntermediateOrTerminal');
+clear allPiaDists;for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (xyz100(1,:)-xyz20(1,:))'];  
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')')+1e5*((abs(det(A(1:3,1:3)))-1)^2),initA,optimset('MaxFunEvals',100000,'MaxIter',100000)); % 1e5->det is close enough to 1
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);xy=xyz(:,1).*xyz(:,2); xz=xyz(:,1).*xyz(:,3); yz=xyz(:,2).*xyz(:,3); xx=xyz(:,1).^2; yy=xyz(:,2).^2; zz=xyz(:,3).^2;
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end; [~,posi]=max(allPiaDists(:,[1:6 8 9]));disp(std(posi))
+
+
+h = fspecial('gaussian', [1 61], 10);
+clear allPiaDists;for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  d20=[xyz20 ones(size(xyz20,1),1)];
+  initA = [eye(3) (mean(xyz100)-mean(xyz20))'];
+  [AA,fval,exitflag]=fminsearch(@(A)trace((A*d20'-xyz100')*(A*d20'-xyz100')')+1e5*((abs(det(A(1:3,1:3)))-1)^2),initA,optimset('MaxFunEvals',100000,'MaxIter',100000)); % 1e5->det is close enough to 1
+  xyz=pialSurfaceAndSoma(1:end-1,:); soma = pialSurfaceAndSoma(end,:);
+  xyz=[xyz ones(size(xyz,1),1)]*AA';
+  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    dist=99999;
+    for pp=1:numel(x)
+      tt=pdist2(xyz(pp,:),xyz); [~,order]=sort(tt); order=order(1:17);
+      A=[y(order) z(order) ones(17,1)]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x(order));
+      [thisDist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+      dist = min(dist, thisDist);
+    end
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end; [~,posi]=max(allPiaDists(:,[1:4 6 7]));disp([std(posi)]);
+
+clear allPiaDists;for kk = 1:numel(trees)
+  load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+  for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+  xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+  xyz=pialSurfaceAndSoma(1:end-1,:) + kron(-xyz20(1,:)+xyz100(1,:),ones(size(pialSurfaceAndSoma,1)-1,1));  
+%  x=xyz(:,1); y=xyz(:,2); z=xyz(:,3);
+  A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+%dist=min(pdist2(allXYZofNodesOfInterest{kk}{mm},xyz),[],2)';
+    piaDists = [piaDists; dist'];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;                             
+
+
+parls=[    1.5627    0.9109  739.7580]';
+parls=[    1.1539    0.5447  517.4517]';
+parls=[    0.8103   -0.9838  332.9020]';
+parls=[    1.4804    2.6856  562.3718]';
+parls=[    1.4804    2.6856  608.3898]';
+parls=[    1.2157    1.0026  443.4597]';
+parls=[    1.2157    1.0026  733.4540]';
+parls=[    1.8859    1.9644  983.9541]';
+parls=[    0.9507   -0.3246  425.5259]';
+unitNormal = [1 parls(1) parls(2)]'; unitNormal = unitNormal/norm(unitNormal);
+clear allPiaDists;for kk = 1:numel(trees)
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+%    [dist,~] = pqdist(allXYZofNodesOfInterest{kk}{mm}',[0;0;0;0;0;0; 1; parls([1 2 3])]);
+    dist = abs([allXYZofNodesOfInterest{kk}{mm}(:,1) allXYZofNodesOfInterest{kk}{mm}(:,2) allXYZofNodesOfInterest{kk}{mm}(:,3)+parls(3)/parls(2)]*unitNormal);
+
+    piaDists = [piaDists; dist(:)];
+  end
+  tmp = conv(pureGridder1d((-piaDists+553)/(553-69+120) - 0.5, ones(size(piaDists)), 553-69+120), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;
+figure;plot(-613:-10,allPiaDists); xlim([-1000 0]);
+
+for kk = 1:numel(trees)
+load([directory code{kk}{1} '_pialSurface.mat']); pialSurfaceAndSoma=pialSurfaceAndSoma(:,[2 3 1]); load([directory code{kk}{2}]); xyz20=zxy20(:,[2 3 1]); xyz100=zxy100(:,[2 3 1]);
+for dd=1:3; pialSurfaceAndSoma(:,dd)=pialSurfaceAndSoma(:,dd)*options.resolution20x(dd); xyz100(:,dd)=xyz100(:,dd)*options.resolution(dd); xyz20(:,dd)=xyz20(:,dd)*options.resolution20x(dd); end;
+xyz100Soma = xyz100(1, :); traceSoma = trees{kk}{1}{3}; shift100toTrace=traceSoma-xyz100Soma; xyz100 = xyz100 + kron(shift100toTrace, ones(size(xyz100,1),1));
+xyz=pialSurfaceAndSoma(1:end-1,:) + kron(-xyz20(1,:)+xyz100(1,:),ones(size(pialSurfaceAndSoma,1)-1,1));                                                       
+x=xyz(:,1); y=xyz(:,2); z=xyz(:,3); 
+A=[y z ones(size(y))]; Gamma=0*diag([1 1 1]); parls=(A'*A+Gamma'*Gamma)\(-A'*x);disp(parls')
+end
+
+
+  unitNormal = [1 parls(1) parls(2)]'; unitNormal = unitNormal/norm(unitNormal);
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+    dist = abs([allXYZofNodesOfInterest{kk}{mm}(:,1) allXYZofNodesOfInterest{kk}{mm}(:,2) allXYZofNodesOfInterest{kk}{mm}(:,3)+parls(3)/parls(2)]*unitNormal);
+    piaDists = [piaDists; dist];
+  end
+  tmp = conv(pureGridder1d((-piaDists+471.3667)/390.8879 - 0.5, ones(size(piaDists)), 391), h, 'same');
+  allPiaDists(:,kk) = tmp/sum(tmp);
+
+
+>> [allPairwiseDistances, allXYZofNodesOfInterest, allSomaDistancesOfNodesOfInterest, pairAndSomaDistances] = pairwiseDistanceDistribution_scratch2(trees, 'spine', -1:1, 0.0001, 'apical', 'primalOrIntermediateOrTerminal');        
+>> clear allPiaDists;for kk = 1:numel(trees)
+  piaDists = [];
+  for mm = 2:numel(trees{kk})
+dist=sqrt(sum(allXYZofNodesOfInterest{kk}{mm}.^2,2));
+    piaDists = [piaDists; dist(:)];
+  end
+  tmp = conv(pureGridder1d((-piaDists+396)/(396-0+60) - 0.5, ones(size(piaDists)), 396-0+60), h, 'same');    
+  allPiaDists(:,kk) = tmp/sum(tmp);
+end;
+>> figure;plot(-456:-1,allPiaDists); xlim([-500 0]);
